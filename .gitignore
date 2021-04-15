@@ -9,4 +9,9 @@ venv/
 
 # Python
 **/__pycache__/
-**.pyc
+*.pyc
+*.pt
+**/.ipynb_checkpoints/
+logs/
+
+# Temp

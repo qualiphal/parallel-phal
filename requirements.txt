@@ -1,5 +1,6 @@
 segmentation-models-pytorch # try building from source
 matplotlib
 torch
+opencv-python
 cython
 pycocotools

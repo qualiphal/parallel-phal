@@ -1,7 +1,9 @@
 import os
+import torch
+import pickle
 import numpy as np
-from torch.utils.data import DataLoader
 import segmentation_models_pytorch as smp
+from torch.utils.data import DataLoader
 
 from src.models import ModelSM
 from src.datasets import LemonDatasetCOCO
@@ -16,10 +18,24 @@ ENCODER_WEIGHTS = 'imagenet' # None -> random initialization
 BATCH_SIZE = 4
 CLASSES    = ['illness','gangrene']
 LR         = 0.0001
-EPOCHS     = 100
+EPOCHS     = 5
 IMG_SIZE   = (256,256)
-OUTPUT_FILE = './best_model_unet2.h5'
-LIMIT_IMAGES = 100
+LIMIT_IMAGES = 32
+OUTPUT_FILE = './best_model.pt'
+EXP_NAME    = './logs/unet_exp0.pkl'
+PARALLEL   = False
+
+# Parallel configuration
+args = {
+    'nodes':1,
+    'gpus':1,
+    'nr':0,
+    'gpu_id':0,
+    'parallel':PARALLEL
+}
+args['world_size'] = args['gpus'] * args['nodes']
+os.environ['MASTER_ADDR'] = '127.0.0.1'
+os.environ['MASTER_PORT'] = '8888'
 
 # Group model parameters
 model = ModelSM(
@@ -56,8 +72,19 @@ valid_dataset = LemonDatasetCOCO(
 print("Training dataset length:", len(train_dataset))
 print("Validation dataset length:", len(valid_dataset))
 
-# Create dataloaders
-train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=6)
+if PARALLEL:
+    # Sampler
+    train_sampler = torch.utils.data.distributed.DistributedSampler(
+        train_dataset,
+        num_replicas=args['world_size'],
+        rank=args['nr'] * args['gpus'] + args['gpu_id']
+    )
+    # Create train data loader
+    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=6, pin_memory=True, sampler=train_sampler)
+else:
+    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=6)
+
+# Create valid data loader
 valid_loader = DataLoader(valid_dataset, batch_size=1, shuffle=False, num_workers=2)
 
 # check shapes for errors
@@ -68,48 +95,16 @@ valid_loader = DataLoader(valid_dataset, batch_size=1, shuffle=False, num_worker
 model.create_model(learning_rate=LR)
 
 # Train model
-model.train_model(
+logs = model.train_model(
     device=DEVICE,
     train_loader=train_loader,
     valid_loader=valid_loader,
-    epochs=EPOCHS
-)
-
-
-print(model.model.summary())
-
-# Define callbacks for learning rate scheduling and best checkpoints saving
-callbacks = [
-    keras.callbacks.ModelCheckpoint(OUTPUT_FILE, save_weights_only=True, save_best_only=True, save_freq=len(train_dataloader)*5, mode='min'),
-    keras.callbacks.ReduceLROnPlateau(),
-    keras.callbacks.TensorBoard()
-]
-
-# Train model
-history = model.fit_generator(
-    train_generator=train_dataloader,
-    valid_generator=valid_dataloader,
     epochs=EPOCHS,
-    callbacks=callbacks
+    output_file=OUTPUT_FILE,
+    args=args
 )
 
-import matplotlib.pyplot as plt
-# Plot training & validation iou_score values
-plt.figure(figsize=(30, 5))
-plt.subplot(121)
-plt.plot(history.history['iou_score'])
-plt.plot(history.history['val_iou_score'])
-plt.title('Model iou_score')
-plt.ylabel('iou_score')
-plt.xlabel('Epoch')
-plt.legend(['Train', 'Test'], loc='upper left')
-
-# Plot training & validation loss values
-plt.subplot(122)
-plt.plot(history.history['loss'])
-plt.plot(history.history['val_loss'])
-plt.title('Model loss')
-plt.ylabel('Loss')
-plt.xlabel('Epoch')
-plt.legend(['Train', 'Test'], loc='upper left')
-plt.show()
+# Write results
+with open(EXP_NAME, 'wb') as handle:
+    pickle.dump(logs, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    print(logs['time_taken'])

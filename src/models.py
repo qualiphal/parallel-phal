@@ -1,5 +1,8 @@
 import os
+import time
 import torch
+import torch.nn as nn
+import torch.distributed as dist
 import numpy as np
 import segmentation_models_pytorch as smp
 
@@ -76,11 +79,19 @@ class ModelSM:
         # Model is compiled
         self.is_compiled = True
     
-    def train_model(self, device, train_loader, valid_loader, epochs, callbacks=[]):
+    def train_model(self, device, train_loader, valid_loader, epochs, output_file='./best_model.pth', args={}):
         """Train the model
         """
         if not self.is_compiled:
             raise Exception("Create model before fitting")
+        
+        if args['parallel']:
+            rank = args['nr'] * args['gpus'] + args['gpu_id']
+            dist.init_process_group(backend='nccl', init_method='env://', world_size=args['world_size'], rank=rank)
+            torch.manual_seed(0)
+            torch.cuda.set_device(args['gpu_id'])
+            self.model.cuda(args['gpu_id'])
+            self.model = nn.parallel.DistributedDataParallel(self.model, device_ids=[args['gpu_id']], find_unused_parameters=True)
 
         # Create epoch runners - it is a simple loop of iterating over dataloader`s samples
         train_epoch = smp.utils.train.TrainEpoch(
@@ -101,20 +112,33 @@ class ModelSM:
 
         # Train model
         max_score = 0
+        all_epoch_train_logs = []
+        all_epoch_valid_logs = []
+        total_time_taken = 0.0
         for i in range(0, epochs):
             print('\nEpoch: {}'.format(i))
+            _t0 = time.time()
             train_logs = train_epoch.run(train_loader)
             valid_logs = valid_epoch.run(valid_loader)
+            total_time_taken += time.time() - _t0
             
-            # do something (save model, change lr, etc.)
+            all_epoch_train_logs.append(train_logs)
+            all_epoch_valid_logs.append(valid_logs)
+            
+            # TODO: Add more callbacks
             if max_score < valid_logs['iou_score'] + valid_logs['fscore']:
                 max_score = valid_logs['iou_score']
-                torch.save(self.model, './best_model.pth')
-                print('Model saved!')
+                torch.save(self.model, output_file)
 
             if i == 25:
                 self.optim.param_groups[0]['lr'] = 1e-5
                 print('Decrease decoder learning rate to 1e-5!')
+        
+        return {
+            'train': all_epoch_train_logs,
+            'valid': all_epoch_valid_logs,
+            'time_taken': total_time_taken
+        }
     
     def predict(self, x):
         # Predict
