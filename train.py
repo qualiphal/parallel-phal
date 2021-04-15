@@ -14,11 +14,12 @@ MODEL_NAME = 'unet'
 BACKBONE   = 'efficientnet-b3'
 ENCODER_WEIGHTS = 'imagenet' # None -> random initialization
 BATCH_SIZE = 4
-CLASSES    = ['image_quality','illness']
+CLASSES    = ['illness','gangrene']
 LR         = 0.0001
 EPOCHS     = 100
 IMG_SIZE   = (256,256)
 OUTPUT_FILE = './best_model_unet2.h5'
+LIMIT_IMAGES = 100
 
 # Group model parameters
 model = ModelSM(
@@ -39,7 +40,8 @@ train_dataset = LemonDatasetCOCO(
     img_size=IMG_SIZE,
     classes=CLASSES,
     augmentation=augmentor.get_training_augmentation(),
-    preprocessing=augmentor.get_preprocessing(model.get_preprocess_input_fn())
+    preprocessing=augmentor.get_preprocessing(model.get_preprocess_input_fn()),
+    limit_images=LIMIT_IMAGES
 )
 valid_dataset = LemonDatasetCOCO(
     images_dir=Path.get_x_val_dir(),
@@ -47,7 +49,8 @@ valid_dataset = LemonDatasetCOCO(
     img_size=IMG_SIZE,
     classes=CLASSES,
     augmentation=augmentor.get_validation_augmentation(),
-    preprocessing=augmentor.get_preprocessing(model.get_preprocess_input_fn())
+    preprocessing=augmentor.get_preprocessing(model.get_preprocess_input_fn()),
+    limit_images=LIMIT_IMAGES
 )
 
 print("Training dataset length:", len(train_dataset))

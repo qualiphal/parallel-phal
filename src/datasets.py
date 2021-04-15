@@ -8,7 +8,7 @@ from utils import cocoFunctions
 class LemonDatasetCOCO(torch.utils.data.Dataset):
     """Lemon Dataset in COCO format made usable for torch dataloaders
     """
-    CLASSES = ['image_quality','illness','gangrene','mould','blemish','dark_style_remains','artifact','condition','pedicel']
+    CLASSES = ['illness','gangrene','mould','blemish','dark_style_remains','artifact','condition','pedicel']
 
     def __init__(
         self,
@@ -17,16 +17,17 @@ class LemonDatasetCOCO(torch.utils.data.Dataset):
         img_size,
         classes=None,
         augmentation=None,
-        preprocessing=None
+        preprocessing=None,
+        limit_images=100,
     ):
         # Initiate COCO API
         self.coco = COCO(annot_file)
         self.img_size = img_size
 
         # Load images in dict format using COCO
-        self.ids = self.coco.getImgIds()
+        # self.ids = self.coco.getImgIds()
         self.images_dir = images_dir
-        self.images_objs = [imgobj for imgobj in self.coco.imgs.values()]
+        self.images_objs = [imgobj for imgobj in self.coco.imgs.values()][:limit_images]
 
         # Get class values
         self.classes = classes
@@ -68,4 +69,4 @@ class LemonDatasetCOCO(torch.utils.data.Dataset):
         return image, mask
 
     def __len__(self):
-        return len(self.ids)
+        return len(self.images_objs)
