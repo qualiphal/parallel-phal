@@ -1,0 +1,12 @@
+# Data
+data/
+
+# Settings
+.vscode/
+
+# Environment
+venv/
+
+# Python
+**/__pycache__/
+**.pyc
