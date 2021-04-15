@@ -87,7 +87,11 @@ class ModelSM:
         
         if args['parallel']:
             rank = args['nr'] * args['gpus'] + args['gpu_id']
-            dist.init_process_group(backend='nccl', init_method='env://', world_size=args['world_size'], rank=rank)
+            try:
+                dist.init_process_group(backend='nccl', init_method='env://', world_size=args['world_size'], rank=rank)
+            except Exception:
+                pass
+            
             torch.manual_seed(0)
             torch.cuda.set_device(args['gpu_id'])
             self.model.cuda(args['gpu_id'])
