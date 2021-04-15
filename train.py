@@ -9,7 +9,7 @@ from src.augmentations import Augmentor
 from utils.paths import Path
 
 # Config parameters
-DEVICE     = 'cpu'
+DEVICE     = 'cuda'
 MODEL_NAME = 'unet'
 BACKBONE   = 'efficientnet-b3'
 ENCODER_WEIGHTS = 'imagenet' # None -> random initialization

@@ -106,16 +106,14 @@ class ModelSM:
             train_logs = train_epoch.run(train_loader)
             valid_logs = valid_epoch.run(valid_loader)
             
-            print(train_logs)
-            print(valid_logs)
             # do something (save model, change lr, etc.)
-            if max_score < valid_logs['iou_score']:
+            if max_score < valid_logs['iou_score'] + valid_logs['fscore']:
                 max_score = valid_logs['iou_score']
-                torch.save(model, './best_model.pth')
+                torch.save(self.model, './best_model.pth')
                 print('Model saved!')
-                
+
             if i == 25:
-                optimizer.param_groups[0]['lr'] = 1e-5
+                self.optim.param_groups[0]['lr'] = 1e-5
                 print('Decrease decoder learning rate to 1e-5!')
     
     def predict(self, x):
