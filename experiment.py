@@ -14,14 +14,14 @@ from utils.paths import Path
 DEVICE     = 'cuda'
 BACKBONE   = 'efficientnet-b3'
 ENCODER_WEIGHTS = 'imagenet' # None -> random initialization
-BATCH_SIZE = 4
+BATCH_SIZE = 8
 CLASSES    = ['illness','gangrene']
 LR         = 0.0001
-EPOCHS     = 5
+EPOCHS     = 10
 IMG_SIZE   = (256,256)
-LIMIT_IMAGES = 64
+LIMIT_IMAGES = 256
 
-for MODEL_NAME in ['fpn', 'unet']:
+for MODEL_NAME in ['unet', 'fpn']:
     for PARALLEL in [True, False]:
         for num_workers in [2,4,6,8,12,16]:
             OUTPUT_FILE = './models/best_model_'+MODEL_NAME+'_'+str(PARALLEL)+'_'+str(num_workers)+'.pt'

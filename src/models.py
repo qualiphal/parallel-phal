@@ -1,4 +1,5 @@
 import os
+import gc
 import time
 import torch
 import torch.nn as nn
@@ -128,6 +129,10 @@ class ModelSM:
             
             all_epoch_train_logs.append(train_logs)
             all_epoch_valid_logs.append(valid_logs)
+
+            # Collect garbage
+            gc.collect()
+            torch.cuda.empty_cache()
             
             # TODO: Add more callbacks
             if max_score < valid_logs['iou_score'] + valid_logs['fscore']:
